@@ -2,7 +2,7 @@ import telebot
 import datetime
 import os
 
-TOKEN = os.environ.get('6262622771:AAEbHR-8RlopH8O0OPx0dN6iO0JRt-gk7G0')
+TOKEN = os.environ.get('')
 bot = telebot.TeleBot(TOKEN)
 
 tasks = {}

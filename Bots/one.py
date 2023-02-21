@@ -2,18 +2,7 @@ import openai
 import telebot
 import mysql.connector
 
-# Initialize the OpenAI API client with your API key
-openai.api_key = "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"
 
-# Initialize the Telegram bot with your bot token
-bot = telebot.TeleBot("6262622771:AAEbHR-8RlopH8O0OPx0dN6iO0JRt-gk7G0")
-
-conn = mysql.connector.connect(
-    host="mysql.j98515082.myjino.ru",
-    user="j98515082",
-    password="HiuhasUH83",
-    database="j98515082_test"
-)
 
 # Define a function to generate a text response using the OpenAI GPT-3 model
 def generate_response(text):
