@@ -1,8 +1,17 @@
 import openai
 import telebot
 import mysql.connector
+import config
 
+openai.api_key = config.OPENAI_TOKEN
 
+bot = telebot.TeleBot(config.TELEGRAM_TOKEN)
+conn = mysql.connector.connect(
+    host=config.DB_HOST,
+    user=config.DB_USER,
+    password=config.DB_PASSWORD,
+    database=config.DB_NAME
+)
 
 # Define a function to generate a text response using the OpenAI GPT-3 model
 def generate_response(text):
