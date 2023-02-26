@@ -2,7 +2,6 @@ import telebot
 import mysql.connector
 import config
 from mysql.connector import errorcode
-from telebot import types
 
 # Подключение к базе данных
 try:
