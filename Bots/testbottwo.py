@@ -27,14 +27,14 @@ bot = telebot.TeleBot(config.TELEGRAM_TOKEN)
 @bot.message_handler(commands=['start'])
 def start_command(message):
     # Отправка пользователю сообщения со списком доступных команд
-    commands_list = "/add - добавить новую запись\n/view - просмотреть список всех записей\n/edit - редактировать существующую запись\n/delete - удалить существующую запись"
+    commands_list = "/create - добавить новую запись\n/list - просмотреть список всех записей\n/edit - редактировать существующую запись\n/delete - удалить существующую запись"
     bot.send_message(message.chat.id, f"Доступные команды:\n{commands_list}")
     
 # Обработчик команды /create
 @bot.message_handler(commands=['create'])
 def create_record(message):
     # Получение идентификатора пользователя и данных для создания новой записи
-    user_id = message.chat.id
+    telegram_id = message.chat.id
     chat_id = message.chat.id
     args = message.text.split()[1:]
     name = None
@@ -49,27 +49,27 @@ def create_record(message):
         elif key == "email":
             email = value
         elif key == "phone":
-           phone = value
-
-    # Создание новой записи в базе данных
-    query = "INSERT INTO records (user_id, name, email, phone) VALUES (%s, %s, %s, %s)"
-    values = (user_id, name, email, phone)
+            phone = value
+     # Создание новой записи в базе данных
+    query = "INSERT INTO records (telegram_id, name, email, phone) VALUES (%s, %s, %s, %s)"
+    values = (telegram_id, name, email, phone)
     cursor.execute(query, values)
     cnx.commit()
 
     # Отправка сообщения пользователю об успешном создании записи
     bot.send_message(chat_id, "Запись успешно создана.")
 
+
 # Обработчик команды /list
 @bot.message_handler(commands=['list'])
 def list_records(message):
     # Получение идентификатора пользователя для поиска записей в базе данных
-    user_id = message.chat.id
+    telegram_id = message.chat.id
     chat_id = message.chat.id
 
     # Поиск записей, созданных пользователем, в базе данных
-    query = "SELECT * FROM records WHERE user_id = %s"
-    values = (user_id,)
+    query = "SELECT * FROM records WHERE telegram_id = %s"
+    values = (telegram_id,)
     cursor.execute(query, values)
     records = cursor.fetchall()
 
