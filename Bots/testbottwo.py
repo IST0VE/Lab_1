@@ -15,9 +15,9 @@ try:
     cursor = cnx.cursor()
 except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Something is wrong with your user name or password")
+        print("Неверное имя пользователя или пароль")
     elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
+        print("База данных не существует")
     else:
         print(err)
 
@@ -26,68 +26,62 @@ bot = telebot.TeleBot(config.TELEGRAM_TOKEN)
 
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
-def start_message(message):
-    markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-    itembtn_add = types.KeyboardButton('Добавить запись')
-    edit_button = types.KeyboardButton(text="Редактировать запись")
-    show_button = types.KeyboardButton(text="Показать мои записи")
-
-    markup.add(edit_button, show_button, itembtn_add)
-    bot.send_message(message.chat.id, 'Привет!', reply_markup=markup)
+def start_command(message):
+    # Отправка пользователю сообщения со списком доступных команд
+    commands_list = "/add - добавить новую запись\n/view - просмотреть список всех записей\n/edit - редактировать существующую запись\n/delete - удалить существующую запись"
+    bot.send_message(message.chat.id, f"Доступные команды:\n{commands_list}")
     
-@bot.message_handler(func=lambda message: message.text == 'Добавить запись')
-def add_record_handler(message):
-    # Запрос имени
-    bot.reply_to(message, 'Введите имя:')
+# Обработчик команды /create
+@bot.message_handler(commands=['create'])
+def create_record(message):
+    # Получение идентификатора пользователя и данных для создания новой записи
+    user_id = message.chat.id
+    chat_id = message.chat.id
+    args = message.text.split()[1:]
+    name = None
+    email = None
+    phone = None
 
-    # Ожидание ответа с именем
-    bot.register_next_step_handler(message, lambda msg: add_record_step2(msg, message.from_user.id))
+    # Парсинг аргументов команды
+    for arg in args:
+        key, value = arg.split("=")
+        if key == "name":
+            name = value
+        elif key == "email":
+            email = value
+        elif key == "phone":
+           phone = value
 
-def add_record_step2(message, telegram_id):
-    # Сохранение имени
-    name = message.text
-
-    # Запрос email
-    bot.reply_to(message, 'Введите email:')
-
-    # Ожидание ответа с email
-    bot.register_next_step_handler(message, lambda msg: add_record_step3(msg, telegram_id, name))
-
-def add_record_step3(message, telegram_id, name):
-    # Сохранение email
-    email = message.text
-
-    # Запрос телефона
-    bot.reply_to(message, 'Введите телефон:')
-
-    # Ожидание ответа с телефоном
-    bot.register_next_step_handler(message, lambda msg: add_record_step4(msg, telegram_id, name, email))
-
-def add_record_step4(message, telegram_id, name, email):
-    # Сохранение телефона и запись в базу данных MySQL
-    phone = message.text
-
-    insert_query = "INSERT INTO records (name, email, phone, telegram_id) VALUES (%s, %s, %s, %s)"
-    cursor.execute(insert_query, (name, email, phone, telegram_id))
+    # Создание новой записи в базе данных
+    query = "INSERT INTO records (user_id, name, email, phone) VALUES (%s, %s, %s, %s)"
+    values = (user_id, name, email, phone)
+    cursor.execute(query, values)
     cnx.commit()
 
-    bot.reply_to(message, 'Запись успешно добавлена!')
+    # Отправка сообщения пользователю об успешном создании записи
+    bot.send_message(chat_id, "Запись успешно создана.")
 
-# Обработчик кнопки "Показать мои записи"
-@bot.message_handler(func=lambda message: message.text == "Показать мои записи")
-def show_records(message):
-    user_id = message.from_user.id
-    select_query = "SELECT id, name, email, phone FROM records WHERE telegram_id = %s"
-    cursor.execute(select_query, (user_id,))
-    result = cursor.fetchall()
-    if result:
-        bot.reply_to(message, "Вот ваши записи:")
-        for row in result:
-            record_id, name, email, phone = row
-            record_text = f"ID: {record_id}\nИмя: {name}\nEmail: {email}\nТелефон: {phone}\n\n"
-            bot.send_message(message.chat.id, record_text)
+# Обработчик команды /list
+@bot.message_handler(commands=['list'])
+def list_records(message):
+    # Получение идентификатора пользователя для поиска записей в базе данных
+    user_id = message.chat.id
+    chat_id = message.chat.id
+
+    # Поиск записей, созданных пользователем, в базе данных
+    query = "SELECT * FROM records WHERE user_id = %s"
+    values = (user_id,)
+    cursor.execute(query, values)
+    records = cursor.fetchall()
+
+    # Отправка пользователю списка найденных записей
+    if records:
+        for record in records:
+            # Форматирование строки с данными о записи
+            text = f"ID: {record[0]}\nName: {record[2]}\nEmail: {record[3]}\nPhone: {record[4]}\n"
+            bot.send_message(chat_id, text)
     else:
-        bot.reply_to(message, "У вас нет записей.")
+        bot.send_message(chat_id, "Записи не найдены.")
 
 # Функция для редактирования записи в базе данных
 def edit_record(message, record_id, name=None, email=None, phone=None):
