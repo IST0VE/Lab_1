@@ -2,6 +2,7 @@ import telebot
 import mysql.connector
 import config
 from mysql.connector import errorcode
+from telebot import types
 
 # Подключение к базе данных
 try:
@@ -26,95 +27,144 @@ bot = telebot.TeleBot(config.TELEGRAM_TOKEN)
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    bot.send_message(message.chat.id, 'Привет!')
+    markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    itembtn_add = types.KeyboardButton('Добавить запись')
+    edit_button = types.KeyboardButton(text="Редактировать запись")
+    show_button = types.KeyboardButton(text="Показать мои записи")
 
-# Обработчик текстового сообщения с id пользователя
-@bot.message_handler(func=lambda message: True)
-def edit_record(message):
-    telegram_id = message.from_user.id
-    # Поиск пользователя по id в базе данных
-    cursor.execute("SELECT * FROM records WHERE telegram_id=%s", (telegram_id,))
-    user = cursor.fetchone()
+    markup.add(edit_button, show_button, itembtn_add)
+    bot.send_message(message.chat.id, 'Привет!', reply_markup=markup)
+    
+@bot.message_handler(func=lambda message: message.text == 'Добавить запись')
+def add_record_handler(message):
+    # Запрос имени
+    bot.reply_to(message, 'Введите имя:')
 
-    if not user:
-        # Если пользователь не найден, выводим сообщение об ошибке
-        bot.send_message(message.chat.id, 'Пользователь с таким id не найден!')
+    # Ожидание ответа с именем
+    bot.register_next_step_handler(message, lambda msg: add_record_step2(msg, message.from_user.id))
+
+def add_record_step2(message, telegram_id):
+    # Сохранение имени
+    name = message.text
+
+    # Запрос email
+    bot.reply_to(message, 'Введите email:')
+
+    # Ожидание ответа с email
+    bot.register_next_step_handler(message, lambda msg: add_record_step3(msg, telegram_id, name))
+
+def add_record_step3(message, telegram_id, name):
+    # Сохранение email
+    email = message.text
+
+    # Запрос телефона
+    bot.reply_to(message, 'Введите телефон:')
+
+    # Ожидание ответа с телефоном
+    bot.register_next_step_handler(message, lambda msg: add_record_step4(msg, telegram_id, name, email))
+
+def add_record_step4(message, telegram_id, name, email):
+    # Сохранение телефона и запись в базу данных MySQL
+    phone = message.text
+
+    insert_query = "INSERT INTO records (name, email, phone, telegram_id) VALUES (%s, %s, %s, %s)"
+    cursor.execute(insert_query, (name, email, phone, telegram_id))
+    cnx.commit()
+
+    bot.reply_to(message, 'Запись успешно добавлена!')
+
+# Обработчик кнопки "Показать мои записи"
+@bot.message_handler(func=lambda message: message.text == "Показать мои записи")
+def show_records(message):
+    user_id = message.from_user.id
+    select_query = "SELECT id, name, email, phone FROM records WHERE telegram_id = %s"
+    cursor.execute(select_query, (user_id,))
+    result = cursor.fetchall()
+    if result:
+        bot.reply_to(message, "Вот ваши записи:")
+        for row in result:
+            record_id, name, email, phone = row
+            record_text = f"ID: {record_id}\nИмя: {name}\nEmail: {email}\nТелефон: {phone}\n\n"
+            bot.send_message(message.chat.id, record_text)
     else:
-        # Если пользователь найден, выводим кнопки для редактирования записи
-        markup = telebot.types.InlineKeyboardMarkup()
-        markup.row(telebot.types.InlineKeyboardButton('Изменить имя', callback_data='name'))
-        markup.row(telebot.types.InlineKeyboardButton('Изменить email', callback_data='email'))
-        markup.row(telebot.types.InlineKeyboardButton('Изменить телефон', callback_data='phone'))
-        markup.row(telebot.types.InlineKeyboardButton('Изменить все', callback_data='all'))
-        bot.send_message(message.chat.id, f'Выбери, что нужно изменить для пользователя {user[1]} ({user[2]}, {user[3]})', reply_markup=markup)
+        bot.reply_to(message, "У вас нет записей.")
 
-        # Обработчик нажатия на кнопку
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    telegram_id = call.message.text.split()[4]  # Получаем id пользователя из сообщения
-    field = call.data  # Получаем название поля, которое нужно изменить
+# Функция для редактирования записи в базе данных
+def edit_record(message, record_id, name=None, email=None, phone=None):
+  telegram_id = message.chat.id
+  cursor = cnx.cursor()
 
-    if field == 'all':
-        # Если пользователь выбрал "Изменить все", выводим соответствующее сообщение
-        bot.send_message(call.message.chat.id, 'Отправь мне новые данные через одно сообщение в формате "Имя Фамилия, email, телефон"')
-    else:
-        # Если пользователь выбрал изменить конкретное поле, выводим соответствующее сообщение
-        bot.send_message(call.message.chat.id, f'Отправь мне новое значение для поля "{field}"')
+  # Проверка, что пользователь имеет доступ к записи
+  cursor.execute("SELECT id FROM records WHERE id = %s AND telegram_id = %s", (record_id, telegram_id))
+  result = cursor.fetchone()
 
-    # Регистрируем следующий обработчик
-    bot.register_next_step_handler(call.message, lambda message: update_record(message, telegram_id, field))
+  if result is None:
+    bot.send_message(telegram_id, "Вы не имеете доступа к этой записи.")
+    return
 
-# Обработчик сообщения с новыми данными пользователя
-def update_record(message, telegram_id, field):
-    new_value = message.text.strip()
-    update_query = ''
-    telegram_id = message.from_user.id
-    # Проверяем, существует ли пользователь с заданным id в базе данных
-    #cursor.execute('SELECT * FROM records WHERE telegram_id=%s', (telegram_id,))
-    result = cursor.fetchone()
+  # Обновление полей записи в базе данных
+  query = "UPDATE records SET "
+  values = []
+  if name is not None:
+    query += "name = %s, "
+    values.append(name)
+  if email is not None:
+    query += "email = %s, "
+    values.append(email)
+  if phone is not None:
+    query += "phone = %s, "
+    values.append(phone)
+  query = query.rstrip(", ")
+  query += " WHERE id = %s"
+  values.append(record_id)
+  cursor.execute(query, tuple(values))
+  cnx.commit()
 
-    if not result:
-        # Если пользователь не найден, выводим сообщение об ошибке
-        bot.send_message(message.chat.id, 'Пользователь с таким id не найден в базе данных')
-        return
+  bot.send_message(telegram_id, "Запись успешно изменена.")
 
-    if field == 'name':
-        # Изменяем имя пользователя
-        update_query = "UPDATE records SET name=%s WHERE telegram_id=%s"
-    elif field == 'email':
-        # Изменяем email пользователя
-        update_query = "UPDATE records SET email=%s WHERE telegram_id=%s"
-    elif field == 'phone':
-        # Изменяем телефон пользователя
-        update_query = "UPDATE records SET phone=%s WHERE telegram_id=%s"
-    elif field == 'all':
-        # Изменяем все поля пользователя
-        new_values = new_value.split(',')
-        if len(new_values) != 3:
-            # Если количество полей не равно 3, выводим сообщение об ошибке
-            bot.send_message(message.chat.id, 'Неверный формат данных. Попробуй еще раз.')
-            return
-        name, email, phone = [value.strip() for value in new_values]
-        update_query = "UPDATE records SET name=%s, email=%s, phone=%s WHERE telegram_id=%s"
+# Обработка команды для редактирования записи
+@bot.message_handler(commands=['edit'])
+def handle_edit(message):
+  args = message.text.split()[1:]
+  record_id = args[0]
+  name = None
+  email = None
+  phone = None
+  if len(args) > 1:
+    for arg in args[1:]:
+      parts = arg.split("=")
+      if parts[0] == "name":
+        name = parts[1]
+      elif parts[0] == "email":
+        email = parts[1]
+      elif parts[0] == "phone":
+        phone = parts[1]
+  edit_record(message, record_id, name, email, phone)
 
-    # Обновляем данные пользователя в базе данных
-    try:
-        if field == 'name':
-            cursor.execute(update_query, (new_value, telegram_id))
-        elif field == 'email':
-            cursor.execute(update_query, (new_value, telegram_id))
-        elif field == 'phone':
-            cursor.execute(update_query, (new_value, telegram_id))
-        elif field == 'all':
-            cursor.execute(update_query, (name, email, phone, telegram_id))
-        cnx.commit()
-        bot.send_message(message.chat.id, 'Запись успешно изменена!')
-    except mysql.connector.Error as error:
-        print("Ошибка при обновлении записи: {}".format(error))
-        cnx.rollback()
-        bot.send_message(message.chat.id, 'Произошла ошибка при изменении записи. Попробуйте еще раз.')
+# Функция для удаления записи из базы данных
+def delete_record(message, record_id):
+  telegram_id = message.chat.id
+  cursor = cnx.cursor()
 
-bot.polling(none_stop=True)
- 
+  # Проверка, что пользователь имеет доступ к записи
+  cursor.execute("SELECT id FROM records WHERE id = %s AND telegram_id = %s", (record_id, telegram_id))
+  result = cursor.fetchone()
+
+  if result is None:
+    bot.send_message(telegram_id, "Вы не имеете доступа к этой записи.")
+    return
+
+  # Удаление записи из базы данных
+  cursor.execute("DELETE FROM records WHERE id = %s", (record_id,))
+  cnx.commit()
+
+  bot.send_message(telegram_id, "Запись успешно удалена.")
+
+# Обработка команды для удаления записи
+@bot.message_handler(commands=['delete'])
+def handle_delete(message):
+  record_id = message.text.split()[1]
+  delete_record(message, record_id)
 
 bot.polling()
+
