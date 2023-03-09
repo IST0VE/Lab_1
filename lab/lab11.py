@@ -31,7 +31,7 @@ for t in threads:
 
 # Вычисляем и выводим результат
 result = results[0] * results[1] * results[2]
-print(f"Факториал числа {n} равен {result}")
+# print(f"Факториал числа {n} равен {result}")
 
 # Засекаем время окончания выполнения
 end_time = datetime.now()

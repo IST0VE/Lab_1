@@ -8,7 +8,7 @@ def factorial(n):
         return Decimal(n) * Decimal(factorial(n-1))
 
 # Задаем число, для которого нужно посчитать факториал
-n = 15
+n = 15000
 
 # Засекаем время начала выполнения
 start_time = datetime.now()

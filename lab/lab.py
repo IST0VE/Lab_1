@@ -1,10 +1,13 @@
 from datetime import datetime
 
 def factorial(n):
-    if n == 0:
-        return 1
-    else:
-        return n * factorial(n-1)
+    """
+    Функция вычисляет факториал числа n
+    """
+    result = 1
+    for i in range(2, n+1):
+        result *= i
+    return result
 
 # Задаем число, для которого нужно посчитать факториал
 n = 150000
