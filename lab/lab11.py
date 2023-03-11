@@ -9,7 +9,7 @@ def factorial(n, thread_num, results):
     results[thread_num] = result
 
 # Задаем число, для которого нужно посчитать факториал
-n = 150000
+n = 8
 
 # Засекаем время начала выполнения
 start_time = datetime.now()
@@ -31,7 +31,7 @@ for t in threads:
 
 # Вычисляем и выводим результат
 result = results[0] * results[1] * results[2]
-# print(f"Факториал числа {n} равен {result}")
+print(f"Факториал числа {n} равен {result}")
 
 # Засекаем время окончания выполнения
 end_time = datetime.now()
