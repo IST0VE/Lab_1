@@ -77,7 +77,7 @@ def list_records(message):
     if records:
         for record in records:
             # Форматирование строки с данными о записи
-            text = f"ID: {record[0]}\nName: {record[2]}\nEmail: {record[3]}\nPhone: {record[4]}\n"
+            text = f"ID: {record[0]}\nName: {record[1]}\nEmail: {record[2]}\nPhone: {record[3]}\n"
             bot.send_message(chat_id, text)
     else:
         bot.send_message(chat_id, "Записи не найдены.")
@@ -160,4 +160,3 @@ def handle_delete(message):
   delete_record(message, record_id)
 
 bot.polling()
-

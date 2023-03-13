@@ -55,7 +55,7 @@ def add_record_step4(message, telegram_id, name, email):
     # Сохранение телефона и запись в базу данных MySQL
     phone = message.text
 
-    insert_query = "INSERT INTO records (name, email, phone, telegram_id) VALUES (%s, %s, %s, %s)"
+    insert_query = "INSERT INTO records (name, email, phone, telegram-id) VALUES (%s, %s, %s, %s)"
     cursor.execute(insert_query, (name, email, phone, telegram_id))
     db.commit()
 
